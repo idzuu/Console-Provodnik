@@ -1,231 +1,410 @@
-﻿using System;
+using System;
 using System.IO;
-using System.Diagnostics;
+using System.Linq;
 
-class FileExplorer
+namespace EnhancedFileExplorer
 {
-    static string currentDirectory = Directory.GetCurrentDirectory();
-
-    static void Main(string[] args)
+    class Program
     {
-        Console.WriteLine("Консольный файловый проводник");
-        Console.WriteLine("----------------------------");
+        private static DriveInfo[] allDrives;
+        private static string currentPath;
+        private static bool exitRequested;
 
-        while (true)
+        static void Main(string[] args)
         {
-            DisplayCurrentDirectory();
-            DisplayFilesAndFolders();
-            DisplayMenu();
+            Initialize();
 
-            var input = Console.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(input))
-                continue;
-
-            ProcessInput(input.ToLower());
-        }
-    }
-
-    static void DisplayCurrentDirectory()
-    {
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"\nТекущая директория: {currentDirectory}");
-        Console.ResetColor();
-
-        // Отображение информации о свободном месте
-        DriveInfo drive = new DriveInfo(Path.GetPathRoot(currentDirectory));
-        Console.WriteLine($"Свободно {drive.AvailableFreeSpace / (1024 * 1024)} MB из {drive.TotalSize / (1024 * 1024)} MB");
-    }
-
-    static void DisplayFilesAndFolders()
-    {
-        Console.WriteLine("\nСодержимое директории:");
-        Console.WriteLine("----------------------");
-
-        try
-        {
-            // Показываем подкаталоги
-            foreach (var dir in Directory.GetDirectories(currentDirectory))
+            while (!exitRequested)
             {
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine($" [Папка]  {Path.GetFileName(dir)}");
-                Console.ResetColor();
-            }
-
-            // Показываем файлы
-            foreach (var file in Directory.GetFiles(currentDirectory))
-            {
-                FileInfo fi = new FileInfo(file);
-                Console.WriteLine($" [Файл]   {Path.GetFileName(file)} ({fi.Length / 1024} KB)");
+                DisplayMainMenu();
+                ProcessUserInput();
             }
         }
-        catch (UnauthorizedAccessException)
+
+        static void Initialize()
         {
-            Console.WriteLine("Нет доступа к этой директории");
+            Console.Title = "Расширенный консольный проводник";
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            allDrives = DriveInfo.GetDrives();
+            currentPath = null;
+            exitRequested = false;
         }
-    }
 
-    static void DisplayMenu()
-    {
-        Console.WriteLine("\nКоманды:");
-        Console.WriteLine("1. Перейти в папку");
-        Console.WriteLine("2. Подняться на уровень выше");
-        Console.WriteLine("3. Открыть файл");
-        Console.WriteLine("4. Создать папку");
-        Console.WriteLine("5. Создать файл");
-        Console.WriteLine("6. Удалить файл/папку");
-        Console.WriteLine("7. Выход");
-        Console.Write("Введите команду: ");
-    }
-
-    static void ProcessInput(string input)
-    {
-        switch (input)
+        static void DisplayMainMenu()
         {
-            case "1":
-                NavigateToDirectory();
-                break;
-            case "2":
-                NavigateUp();
-                break;
-            case "3":
-                OpenFile();
-                break;
-            case "4":
-                CreateDirectory();
-                break;
-            case "5":
-                CreateFile();
-                break;
-            case "6":
-                DeleteItem();
-                break;
-            case "7":
-                Environment.Exit(0);
-                break;
-            default:
-                Console.WriteLine("Неизвестная команда");
-                break;
-        }
-    }
+            Console.Clear();
+            Console.WriteLine("=== РАСШИРЕННЫЙ КОНСОЛЬНЫЙ ПРОВОДНИК ===");
+            Console.WriteLine("1. Просмотреть доступные диски");
 
-    static void NavigateToDirectory()
-    {
-        Console.Write("Введите имя папки: ");
-        string folderName = Console.ReadLine();
-
-        string newPath = Path.Combine(currentDirectory, folderName);
-
-        if (Directory.Exists(newPath))
-        {
-            currentDirectory = newPath;
-        }
-        else
-        {
-            Console.WriteLine("Папка не найдена!");
-        }
-    }
-
-    static void NavigateUp()
-    {
-        DirectoryInfo parent = Directory.GetParent(currentDirectory);
-        if (parent != null)
-        {
-            currentDirectory = parent.FullName;
-        }
-        else
-        {
-            Console.WriteLine("Вы в корневой директории!");
-        }
-    }
-
-    static void OpenFile()
-    {
-        Console.Write("Введите имя файла: ");
-        string fileName = Console.ReadLine();
-
-        string filePath = Path.Combine(currentDirectory, fileName);
-
-        if (File.Exists(filePath))
-        {
-            try
+            if (currentPath != null)
             {
-                Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при открытии файла: {ex.Message}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("Файл не найден!");
-        }
-    }
-
-    static void CreateDirectory()
-    {
-        Console.Write("Введите имя новой папки: ");
-        string folderName = Console.ReadLine();
-
-        string newPath = Path.Combine(currentDirectory, folderName);
-
-        try
-        {
-            Directory.CreateDirectory(newPath);
-            Console.WriteLine("Папка успешно создана");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Ошибка при создании папки: {ex.Message}");
-        }
-    }
-
-    static void CreateFile()
-    {
-        Console.Write("Введите имя нового файла: ");
-        string fileName = Console.ReadLine();
-
-        string filePath = Path.Combine(currentDirectory, fileName);
-
-        try
-        {
-            File.Create(filePath).Close();
-            Console.WriteLine("Файл успешно создан");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Ошибка при создании файла: {ex.Message}");
-        }
-    }
-
-    static void DeleteItem()
-    {
-        Console.Write("Введите имя файла или папки для удаления: ");
-        string itemName = Console.ReadLine();
-
-        string itemPath = Path.Combine(currentDirectory, itemName);
-
-        try
-        {
-            if (Directory.Exists(itemPath))
-            {
-                Directory.Delete(itemPath, true);
-                Console.WriteLine("Папка успешно удалена");
-            }
-            else if (File.Exists(itemPath))
-            {
-                File.Delete(itemPath);
-                Console.WriteLine("Файл успешно удален");
+                Console.WriteLine($"Текущий путь: {currentPath}");
+                Console.WriteLine("2. Информация о текущем диске");
+                Console.WriteLine("3. Просмотр содержимого");
+                Console.WriteLine("4. Создать новый каталог");
+                Console.WriteLine("5. Создать текстовый файл");
+                Console.WriteLine("6. Удалить файл или каталог");
+                Console.WriteLine("7. Сменить текущий диск");
             }
             else
             {
-                Console.WriteLine("Файл или папка не найдены!");
+                Console.WriteLine("2. Выбрать диск для работы");
+            }
+
+            Console.WriteLine("0. Выход");
+            Console.Write("Выберите действие: ");
+        }
+
+        static void ProcessUserInput()
+        {
+            var input = Console.ReadLine();
+
+            switch (input)
+            {
+                case "1":
+                    DisplayAvailableDrives();
+                    break;
+                case "2":
+                    if (currentPath == null) SelectDrive();
+                    else DisplayDriveInfo();
+                    break;
+                case "3":
+                    if (currentPath != null) BrowseDirectory();
+                    break;
+                case "4":
+                    if (currentPath != null) CreateDirectory();
+                    break;
+                case "5":
+                    if (currentPath != null) CreateTextFile();
+                    break;
+                case "6":
+                    if (currentPath != null) DeleteItem();
+                    break;
+                case "7":
+                    if (currentPath != null) SelectDrive();
+                    break;
+                case "0":
+                    exitRequested = true;
+                    break;
+                default:
+                    Console.WriteLine("Неверная команда! Нажмите любую клавишу...");
+                    Console.ReadKey();
+                    break;
             }
         }
-        catch (Exception ex)
+
+        static void DisplayAvailableDrives()
         {
-            Console.WriteLine($"Ошибка при удалении: {ex.Message}");
+            Console.Clear();
+            Console.WriteLine("ДОСТУПНЫЕ ДИСКИ:");
+            Console.WriteLine("----------------");
+
+            foreach (var drive in allDrives)
+            {
+                if (drive.IsReady)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write($"{drive.Name}".PadRight(10));
+                    Console.ResetColor();
+
+                    Console.Write($"{drive.DriveType}".PadRight(15));
+                    Console.Write($"{drive.VolumeLabel}".PadRight(20));
+                    Console.Write($"ФС: {drive.DriveFormat}".PadRight(15));
+
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.Write($"Свободно: {drive.TotalFreeSpace / (1024 * 1024 * 1024):N1}GB");
+                    Console.ResetColor();
+
+                    Console.WriteLine();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"{drive.Name} [Диск не готов]");
+                    Console.ResetColor();
+                }
+            }
+
+            WaitForUser();
+        }
+
+        static void SelectDrive()
+        {
+            Console.Clear();
+            Console.WriteLine("ВЫБОР ДИСКА:");
+            Console.WriteLine("-----------");
+
+            for (int i = 0; i < allDrives.Length; i++)
+            {
+                var drive = allDrives[i];
+                Console.Write($"{i + 1}. {drive.Name}".PadRight(10));
+
+                if (drive.IsReady)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"[{drive.DriveType}] {drive.VolumeLabel}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("[Не готов]");
+                    Console.ResetColor();
+                }
+            }
+
+            Console.Write("\nВведите номер диска (0 для отмены): ");
+            if (int.TryParse(Console.ReadLine(), out int choice) && choice > 0 && choice <= allDrives.Length)
+            {
+                var selectedDrive = allDrives[choice - 1];
+                if (selectedDrive.IsReady)
+                {
+                    currentPath = selectedDrive.RootDirectory.FullName;
+                    Console.WriteLine($"Выбран диск: {selectedDrive.Name}");
+                    WaitForUser();
+                }
+                else
+                {
+                    Console.WriteLine("Диск не готов к работе!");
+                    WaitForUser();
+                }
+            }
+        }
+
+        static void DisplayDriveInfo()
+        {
+            var drive = new DriveInfo(Path.GetPathRoot(currentPath));
+
+            Console.Clear();
+            Console.WriteLine($"ИНФОРМАЦИЯ О ДИСКЕ {drive.Name}:");
+            Console.WriteLine("-------------------------------");
+
+            Console.WriteLine($"Метка тома: {drive.VolumeLabel}");
+            Console.WriteLine($"Тип диска: {drive.DriveType}");
+            Console.WriteLine($"Файловая система: {drive.DriveFormat}");
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"\nОбщий размер: {drive.TotalSize / (1024 * 1024 * 1024):N1} GB");
+            Console.WriteLine($"Свободно: {drive.TotalFreeSpace / (1024 * 1024 * 1024):N1} GB");
+            Console.WriteLine($"Занято: {(drive.TotalSize - drive.TotalFreeSpace) / (1024 * 1024 * 1024):N1} GB");
+            Console.ResetColor();
+
+            WaitForUser();
+        }
+
+        static void BrowseDirectory()
+        {
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"СОДЕРЖИМОЕ: {currentPath}");
+                Console.WriteLine("----------------------------------");
+
+                try
+                {
+                
+                    var directories = Directory.GetDirectories(currentPath);
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    foreach (var dir in directories)
+                    {
+                        var dirInfo = new DirectoryInfo(dir);
+                        Console.WriteLine($"[DIR]  {Path.GetFileName(dir).PadRight(40)} {dirInfo.LastWriteTime}");
+                    }
+                    Console.ResetColor();
+
+               
+                    var files = Directory.GetFiles(currentPath);
+                    foreach (var file in files)
+                    {
+                        var fileInfo = new FileInfo(file);
+                        Console.WriteLine($"[FILE] {Path.GetFileName(file).PadRight(40)} {fileInfo.Length / 1024} KB\t{fileInfo.LastWriteTime}");
+                    }
+
+                    Console.WriteLine("\nКОМАНДЫ:");
+                    Console.WriteLine("1. Перейти в папку");
+                    Console.WriteLine("2. Подняться на уровень выше");
+                    Console.WriteLine("3. Вернуться в главное меню");
+                    Console.Write("Выберите действие: ");
+
+                    var input = Console.ReadLine();
+
+                    if (input == "1")
+                    {
+                        Console.Write("Введите имя папки: ");
+                        var folderName = Console.ReadLine();
+                        var newPath = Path.Combine(currentPath, folderName);
+
+                        if (Directory.Exists(newPath))
+                        {
+                            currentPath = newPath;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Папка не найдена!");
+                            WaitForUser();
+                        }
+                    }
+                    else if (input == "2")
+                    {
+                        var parent = Directory.GetParent(currentPath);
+                        if (parent != null)
+                        {
+                            currentPath = parent.FullName;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Вы в корневой директории диска!");
+                            WaitForUser();
+                        }
+                    }
+                    else if (input == "3")
+                    {
+                        break;
+                    }
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Console.WriteLine("Ошибка доступа к этой директории!");
+                    WaitForUser();
+                    break;
+                }
+            }
+        }
+
+        static void CreateDirectory()
+        {
+            Console.Clear();
+            Console.WriteLine($"СОЗДАНИЕ НОВОЙ ПАПКИ В: {currentPath}");
+            Console.Write("Введите имя новой папки: ");
+            var dirName = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(dirName))
+            {
+                Console.WriteLine("Имя папки не может быть пустым!");
+                WaitForUser();
+                return;
+            }
+
+            try
+            {
+                var newDirPath = Path.Combine(currentPath, dirName);
+                Directory.CreateDirectory(newDirPath);
+                Console.WriteLine($"\nПапка '{dirName}' успешно создана!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\nОшибка при создании папки: {ex.Message}");
+            }
+
+            WaitForUser();
+        }
+
+        static void CreateTextFile()
+        {
+            Console.Clear();
+            Console.WriteLine($"СОЗДАНИЕ ТЕКСТОВОГО ФАЙЛА В: {currentPath}");
+            Console.Write("Введите имя файла (с расширением .txt): ");
+            var fileName = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                Console.WriteLine("Имя файла не может быть пустым!");
+                WaitForUser();
+                return;
+            }
+
+           
+            if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+            {
+                fileName += ".txt";
+            }
+
+            Console.WriteLine("\nВведите содержимое файла (для завершения введите пустую строку):");
+            Console.WriteLine("------------------------------------------------------------");
+
+            var contentLines = new System.Collections.Generic.List<string>();
+            while (true)
+            {
+                Console.Write("> ");
+                var line = Console.ReadLine();
+                if (string.IsNullOrEmpty(line))
+                    break;
+                contentLines.Add(line);
+            }
+
+            try
+            {
+                var filePath = Path.Combine(currentPath, fileName);
+                File.WriteAllLines(filePath, contentLines);
+                Console.WriteLine($"\nФайл '{fileName}' успешно создан!");
+                Console.WriteLine($"Размер: {new FileInfo(filePath).Length} байт");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\nОшибка при создании файла: {ex.Message}");
+            }
+
+            WaitForUser();
+        }
+
+        static void DeleteItem()
+        {
+            Console.Clear();
+            Console.WriteLine($"УДАЛЕНИЕ ФАЙЛА ИЛИ ПАПКИ В: {currentPath}");
+            Console.Write("Введите имя файла или папки для удаления: ");
+            var itemName = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(itemName))
+            {
+                Console.WriteLine("Имя не может быть пустым!");
+                WaitForUser();
+                return;
+            }
+
+            var itemPath = Path.Combine(currentPath, itemName);
+
+            if (!Directory.Exists(itemPath) && !File.Exists(itemPath))
+            {
+                Console.WriteLine("Файл или папка не найдены!");
+                WaitForUser();
+                return;
+            }
+
+            Console.Write($"\nВы уверены, что хотите удалить '{itemName}'? (y/n): ");
+            var confirm = Console.ReadLine().ToLower();
+
+            if (confirm == "y")
+            {
+                try
+                {
+                    if (Directory.Exists(itemPath))
+                    {
+                        Directory.Delete(itemPath, true);
+                        Console.WriteLine($"\nПапка '{itemName}' успешно удалена!");
+                    }
+                    else
+                    {
+                        File.Delete(itemPath);
+                        Console.WriteLine($"\nФайл '{itemName}' успешно удален!");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"\nОшибка при удалении: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nУдаление отменено.");
+            }
+
+            WaitForUser();
+        }
+
+        static void WaitForUser()
+        {
+            Console.WriteLine("\nНажмите любую клавишу для продолжения...");
+            Console.ReadKey();
         }
     }
 }
